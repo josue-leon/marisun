@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gran Rifa Navideña · Banco VisionFund Ecuador</title>
+  <link rel="icon" href="assets/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <p class="subtitle" id="eventTitle">Gran Rifa Navideña · Priostes del Niñito Jesús</p>
+    <div class="current" id="current" aria-live="polite">&nbsp;</div>
+  </header>
+
+  <main class="stage" id="stage">
+    <div class="wheel-wrap" id="wheelWrap">
+      <canvas id="wheel" aria-label="Ruleta de boletos"></canvas>
+      <button class="hub" id="hub" title="Girar (Espacio)">
+        <img src="assets/logo.jpg" alt="Banco VisionFund Ecuador">
+      </button>
+      <div class="pointer" aria-hidden="true">
+        <svg viewBox="0 0 90 50"><path d="M0 25 L52 6 A19 19 0 1 1 52 44 Z" fill="#111"/><circle cx="64" cy="25" r="7" fill="#fff"/></svg>
+      </div>
+      <div class="lens" id="lens"><canvas id="lensCanvas"></canvas></div>
+    </div>
+    <p class="hint" id="hint">Haz clic en el logo o presiona <kbd>Espacio</kbd> para girar</p>
+  </main>
+
+  <div class="badge">Banco VisionFund Ecuador <span>🧡</span></div>
+  <div class="count" id="count"></div>
+
+  <nav class="toolbar">
+    <button id="btnEdit" title="Editar boletos"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg></button>
+    <button id="btnFull" title="Pantalla completa"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+    <button id="btnHistory" title="Ganadores"><svg viewBox="0 0 24 24"><path d="M8 4h8v6a4 4 0 0 1-8 0V4zM8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 14v4M8 21h8M9 18h6"/></svg></button>
+    <button id="btnReset" title="Reiniciar sorteo"><svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M4.5 10A8 8 0 1 1 6 17"/></svg></button>
+    <button id="btnSound" title="Sonido"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="soundWaves" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path id="soundOff" d="M16 9l5 6M21 9l-5 6" style="display:none"/></svg></button>
+  </nav>
+
+  <!-- Panel de boletos -->
+  <aside class="drawer" id="editor">
+    <div class="drawer-head">
+      <h2>Boletos</h2>
+      <button class="close" data-close="editor">✕</button>
+    </div>
+    <label>Título del evento
+      <input id="titleInput" type="text">
+    </label>
+    <div class="range">
+      <label>Desde <input id="from" type="number" value="1" min="0"></label>
+      <label>Hasta <input id="to" type="number" value="400" min="1"></label>
+      <button id="btnRange" class="secondary">Generar</button>
+    </div>
+    <label>Un boleto por línea (número o "número - nombre")
+      <textarea id="ticketsInput" spellcheck="false"></textarea>
+    </label>
+    <div class="row">
+      <button id="btnShuffle" class="secondary">Mezclar</button>
+      <button id="btnApply" class="primary">Aplicar</button>
+    </div>
+    <label class="check"><input type="checkbox" id="autoRemove" checked> Quitar al ganador de la ruleta automáticamente</label>
+    <label>Duración del giro: <b id="durLabel">10</b> s
+      <input id="duration" type="range" min="4" max="20" value="10">
+    </label>
+  </aside>
+
+  <!-- Historial -->
+  <aside class="drawer right" id="history">
+    <div class="drawer-head">
+      <h2>Ganadores</h2>
+      <button class="close" data-close="history">✕</button>
+    </div>
+    <ol id="historyList"></ol>
+    <button id="btnClearHistory" class="secondary">Borrar historial</button>
+  </aside>
+
+  <!-- Modal ganador -->
+  <div class="modal" id="winner" role="dialog" aria-modal="true">
+    <div class="card">
+      <p class="label">🎉 ¡Tenemos ganador! 🎉</p>
+      <div class="win-number" id="winNumber"></div>
+      <div class="win-name" id="winName"></div>
+      <div class="row">
+        <button id="btnKeep" class="secondary">Cerrar</button>
+        <button id="btnRemove" class="primary">Quitar boleto y continuar</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="confetti"></canvas>
+  <script src="app.js"></script>
+</body>
+</html>

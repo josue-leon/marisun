@@ -1,0 +1,249 @@
+:root {
+  --bg: #d6e4fd;
+  --ink: #1d2027;
+  --brand: #ff5a00;
+  --brand-dark: #d94a00;
+  --card: #ffffff;
+  --muted: #5d6573;
+  --wheel: min(72vh, 88vw);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+button { font: inherit; cursor: pointer; }
+
+/* ---------- Encabezado ---------- */
+.top {
+  position: absolute;
+  inset: 0 0 auto 0;
+  text-align: center;
+  padding-top: 2vh;
+  pointer-events: none;
+  z-index: 5;
+}
+.subtitle { margin: 0; font-weight: 600; color: var(--muted); font-size: clamp(13px, 1.6vh, 18px); }
+.current {
+  font-weight: 800;
+  font-size: clamp(32px, 6.5vh, 64px);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 16px;
+}
+
+/* ---------- Ruleta ---------- */
+.stage {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding-top: 9vh;
+}
+
+.wheel-wrap {
+  position: relative;
+  width: var(--wheel);
+  height: var(--wheel);
+  transition: transform 1.4s cubic-bezier(.2, .8, .2, 1);
+  transform-origin: 100% 50%;
+}
+.wheel-wrap.zoom { transform: scale(1.18) translateX(-6%); }
+
+#wheel {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 6px 8px 0 rgba(60, 90, 160, .18);
+  display: block;
+}
+
+.hub {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 22%; aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, .55), 0 4px 14px rgba(0, 0, 0, .15);
+  overflow: hidden;
+  transition: transform .2s;
+}
+.hub:hover { transform: translate(-50%, -50%) scale(1.05); }
+.hub img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.pointer {
+  position: absolute;
+  top: 50%;
+  right: -7%;
+  width: 14%;
+  transform: translateY(-50%);
+  filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .15));
+  z-index: 3;
+}
+.pointer svg { display: block; width: 100%; }
+
+.hint { color: var(--muted); font-size: 14px; margin: 3vh 0 0; transition: opacity .3s; }
+.hint kbd { background: #fff; border-radius: 4px; padding: 1px 6px; font-family: inherit; box-shadow: 0 1px 0 rgba(0,0,0,.2); }
+body.spinning .hint { opacity: 0; }
+
+/* ---------- Lupa sobre la punta del selector ---------- */
+.lens {
+  position: absolute;
+  top: 50%;
+  right: -9%;
+  width: 66%;
+  aspect-ratio: 1.55;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #fff;
+  border: 6px solid #fff;
+  box-shadow: 0 18px 50px rgba(30, 50, 100, .35), 0 0 0 3px var(--brand);
+  transform: translateY(-50%) scale(.05);
+  transform-origin: 100% 50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .7s cubic-bezier(.2, 1.3, .3, 1), opacity .35s;
+  z-index: 4;
+}
+.lens.show { transform: translateY(-50%) scale(1); opacity: 1; }
+.wheel-wrap:has(.lens.show) .pointer { opacity: 0; }
+.pointer { transition: opacity .3s; }
+.lens canvas { width: 100%; height: 100%; display: block; }
+
+/* ---------- Pie y barra de herramientas ---------- */
+.badge {
+  position: fixed;
+  left: 24px; bottom: 24px;
+  background: #fff;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-size: 15px;
+}
+.count {
+  position: fixed;
+  left: 50%; bottom: 28px;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: 14px;
+}
+.toolbar {
+  position: fixed;
+  right: 20px; bottom: 18px;
+  display: flex;
+  gap: 6px;
+}
+.toolbar button {
+  width: 48px; height: 48px;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  display: grid; place-items: center;
+}
+.toolbar button:hover { background: rgba(255, 255, 255, .6); }
+.toolbar svg { width: 30px; height: 30px; fill: none; stroke: #444; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+body.spinning .toolbar, body.spinning .count { opacity: .3; pointer-events: none; }
+
+/* ---------- Paneles ---------- */
+.drawer {
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  width: min(380px, 92vw);
+  background: #fff;
+  box-shadow: 0 0 40px rgba(0, 0, 0, .2);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transform: translateX(-105%);
+  transition: transform .35s ease;
+  z-index: 20;
+  overflow-y: auto;
+}
+.drawer.right { left: auto; right: 0; transform: translateX(105%); }
+.drawer.open { transform: none; }
+.drawer-head { display: flex; justify-content: space-between; align-items: center; }
+.drawer h2 { margin: 0; font-size: 20px; }
+.drawer label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.drawer label.check { flex-direction: row; align-items: center; }
+.drawer input[type=text], .drawer input[type=number], .drawer textarea {
+  font: inherit; color: var(--ink);
+  border: 1px solid #cfd6e3; border-radius: 8px; padding: 8px 10px;
+}
+.drawer textarea { min-height: 260px; flex: 1; resize: vertical; font-family: ui-monospace, monospace; font-size: 13px; }
+.range { display: flex; gap: 8px; align-items: flex-end; }
+.range label { flex: 1; }
+.range input { width: 100%; }
+.close { border: 0; background: none; font-size: 20px; color: var(--muted); }
+
+.row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.primary, .secondary {
+  border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 600;
+}
+.primary { background: var(--brand); color: #fff; }
+.primary:hover { background: var(--brand-dark); }
+.secondary { background: #eef2f8; color: var(--ink); }
+.secondary:hover { background: #e1e7f1; }
+
+#historyList { margin: 0; padding-left: 28px; flex: 1; overflow-y: auto; }
+#historyList li { padding: 8px 0; border-bottom: 1px solid #eef0f4; }
+#historyList b { font-size: 18px; }
+#historyList small { color: var(--muted); display: block; }
+#historyList:empty::before { content: "Aún no hay ganadores."; color: var(--muted); margin-left: -28px; }
+
+/* ---------- Modal ganador ---------- */
+.modal {
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(20, 30, 60, .45);
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s;
+  z-index: 30;
+  padding: 16px;
+}
+.modal.open { opacity: 1; pointer-events: auto; }
+.card {
+  background: var(--card);
+  border-radius: 22px;
+  padding: 32px 36px;
+  text-align: center;
+  width: min(520px, 100%);
+  transform: scale(.85);
+  transition: transform .45s cubic-bezier(.2, 1.4, .3, 1);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .3);
+}
+.modal.open .card { transform: scale(1); }
+.card .label { margin: 0; font-weight: 600; color: var(--muted); }
+.win-number {
+  font-size: clamp(64px, 14vh, 130px);
+  font-weight: 800;
+  color: var(--brand);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+.win-name { font-size: 22px; font-weight: 600; min-height: 8px; margin-bottom: 22px; }
+.card .row { justify-content: center; }
+
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
+
+@media (max-width: 600px) {
+  :root { --wheel: 84vw; }
+  .badge { display: none; }
+  .count { bottom: 80px; }
+  .toolbar { right: 50%; transform: translateX(50%); }
+}
