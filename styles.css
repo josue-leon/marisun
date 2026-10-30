@@ -32,6 +32,7 @@ button { font: inherit; cursor: pointer; }
 }
 .subtitle { margin: 0; font-weight: 600; color: var(--muted); font-size: clamp(13px, 1.6vh, 18px); }
 .current {
+  margin-bottom: 4px;
   font-weight: 800;
   font-size: clamp(32px, 6.5vh, 64px);
   line-height: 1.15;
@@ -44,6 +45,8 @@ button { font: inherit; cursor: pointer; }
 
 /* ---------- Ruleta ---------- */
 .stage {
+  position: relative;
+  z-index: 3;
   height: 100%;
   display: grid;
   place-items: center;
@@ -246,4 +249,170 @@ body.spinning .toolbar, body.spinning .count { opacity: .3; pointer-events: none
   .badge { display: none; }
   .count { bottom: 80px; }
   .toolbar { right: 50%; transform: translateX(50%); }
+}
+
+/* =========================================================
+   Animaciones y efectos de emoción
+   ========================================================= */
+
+/* Fondo vivo: manchas de color de marca que se desplazan suavemente */
+.bg { position: fixed; inset: 0; overflow: hidden; z-index: -1; }
+.bg span {
+  position: absolute;
+  width: 55vmax; height: 55vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: .55;
+  animation: drift 26s ease-in-out infinite alternate;
+}
+.bg span:nth-child(1) { background: #ffffff; top: -20vmax; left: -15vmax; }
+.bg span:nth-child(2) { background: #ffd2b5; bottom: -25vmax; right: -15vmax; animation-duration: 32s; animation-delay: -8s; }
+.bg span:nth-child(3) { background: #b9d0fb; top: 30%; left: 40%; width: 40vmax; height: 40vmax; animation-duration: 38s; animation-delay: -16s; }
+@keyframes drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(8vmax, 6vmax) scale(1.12); }
+  100% { transform: translate(-6vmax, 10vmax) scale(.95); }
+}
+
+/* Viñeta oscura durante el suspenso: el foco queda en la ruleta */
+.vignette {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 58% 55%, transparent 30%, rgba(10, 18, 40, .55) 100%);
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  z-index: 2;
+}
+body.suspense .vignette { opacity: 1; }
+
+/* Halo detrás de la ruleta */
+.glow {
+  position: absolute;
+  inset: -4%;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff5a00, #ffc58f, #7fb3f5, #ff8a3d, #ff5a00);
+  filter: blur(28px);
+  opacity: 0;
+  transition: opacity .8s ease;
+  animation: spinGlow 4s linear infinite;
+  z-index: -1;
+}
+body.spinning .glow { opacity: .45; }
+body.suspense .glow { opacity: .85; animation-duration: 1.6s; }
+.wheel-wrap.win .glow { opacity: 1; background: radial-gradient(circle, #ff5a00 40%, #ffb37a 70%); animation: winPulse .6s ease-in-out 3; }
+@keyframes spinGlow { to { transform: rotate(360deg); } }
+@keyframes winPulse { 50% { transform: scale(1.06); filter: blur(40px); } }
+
+/* Zoom un poco más cerrado en el tramo final */
+body.suspense .wheel-wrap.zoom { transform: scale(1.26) translateX(-9%); transition-duration: 2.5s; }
+
+/* El logo central "late" invitando a girar */
+body:not(.spinning) .hub { animation: hubPulse 2.4s ease-out infinite; }
+@keyframes hubPulse {
+  0%   { box-shadow: 0 0 0 6px rgba(255, 255, 255, .55), 0 0 0 6px rgba(255, 90, 0, .45), 0 4px 14px rgba(0, 0, 0, .15); }
+  70%  { box-shadow: 0 0 0 6px rgba(255, 255, 255, .55), 0 0 0 28px rgba(255, 90, 0, 0), 0 4px 14px rgba(0, 0, 0, .15); }
+  100% { box-shadow: 0 0 0 6px rgba(255, 255, 255, .55), 0 0 0 28px rgba(255, 90, 0, 0), 0 4px 14px rgba(0, 0, 0, .15); }
+}
+
+/* Número actual: pequeño salto en cada cambio durante el suspenso */
+.current { transition: color .4s; }
+body.suspense .current { color: #fff; text-shadow: 0 4px 24px rgba(0, 0, 0, .35); }
+.current.bump { animation: bump .28s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes bump { 0% { transform: scale(1.18); } 100% { transform: scale(1); } }
+
+.status {
+  display: inline-block;
+  margin: 0;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(20, 25, 45, .75);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity .6s, transform .6s;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: #ffc58f;
+}
+body.suspense .status { opacity: 1; transform: none; }
+.status span { animation: dot 1.2s infinite; }
+.status span:nth-child(2) { animation-delay: .2s; }
+.status span:nth-child(3) { animation-delay: .4s; }
+@keyframes dot { 0%, 60%, 100% { opacity: .2; } 30% { opacity: 1; } }
+
+/* Lupa: late durante el suspenso y brilla al detenerse */
+body.suspense .lens.show { animation: lensPulse .9s ease-in-out infinite; }
+.lens.win { animation: lensWin .5s ease-in-out 3 !important; }
+@keyframes lensPulse {
+  50% { box-shadow: 0 18px 60px rgba(30, 50, 100, .45), 0 0 0 3px #ff5a00, 0 0 40px 8px rgba(255, 90, 0, .55); }
+}
+@keyframes lensWin {
+  50% { box-shadow: 0 18px 60px rgba(30, 50, 100, .45), 0 0 0 6px #ff5a00, 0 0 80px 24px rgba(255, 140, 40, .9); }
+}
+
+/* ---------- Revelación del ganador ---------- */
+.modal { background: radial-gradient(circle at center, rgba(40, 20, 10, .55), rgba(10, 15, 35, .82)); backdrop-filter: blur(4px); }
+
+.rays {
+  position: absolute;
+  width: 160vmax; height: 160vmax;
+  left: 50%; top: 50%;
+  margin: -80vmax 0 0 -80vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 170, 90, .16) 0deg 7deg, transparent 7deg 18deg);
+  -webkit-mask: radial-gradient(circle, #000 0%, transparent 55%);
+  mask: radial-gradient(circle, #000 0%, transparent 55%);
+  opacity: 0;
+  transform: scale(.6);
+  transition: opacity 1s ease, transform 1.4s cubic-bezier(.2, .8, .2, 1);
+  animation: spinGlow 40s linear infinite;
+  pointer-events: none;
+}
+.modal.revealed .rays { opacity: 1; transform: none; }
+
+.card { position: relative; overflow: hidden; }
+.card::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 6px;
+  background: linear-gradient(90deg, #ff5a00, #ffb37a, #ff5a00);
+  background-size: 200% 100%;
+  animation: bar 2s linear infinite;
+}
+@keyframes bar { to { background-position: -200% 0; } }
+
+.card-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 14px rgba(0, 0, 0, .12); }
+.card .label { text-transform: uppercase; letter-spacing: .16em; font-size: 12px; margin-top: 10px; }
+.card .title {
+  margin: 4px 0 0;
+  font-size: 26px; font-weight: 800;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity .5s, transform .5s cubic-bezier(.2, 1.4, .3, 1);
+}
+
+.win-number { color: #c7ccd6; transition: color .4s; position: relative; display: inline-block; }
+.win-number .digit { display: inline-block; min-width: .6em; }
+.win-number .digit.settled { color: var(--brand); animation: settle .45s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes settle { 0% { transform: translateY(-18%) scale(1.35); } 100% { transform: none; } }
+
+/* Destello que recorre el número al final */
+.win-number::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .85) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.modal.revealed .win-number::after { animation: shine 1.2s .2s ease-out; }
+@keyframes shine { to { transform: translateX(120%); } }
+.modal.revealed .win-number { animation: glowText 2.4s ease-in-out infinite; }
+@keyframes glowText { 50% { text-shadow: 0 0 30px rgba(255, 120, 30, .45); } }
+
+.win-name, .card .row { opacity: 0; transform: translateY(12px); transition: opacity .5s, transform .5s; }
+.modal.revealed .title { opacity: 1; transform: none; }
+.modal.revealed .win-name { opacity: 1; transform: none; transition-delay: .25s; }
+.modal.revealed .row { opacity: 1; transform: none; transition-delay: .6s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bg span, .glow, .rays, body:not(.spinning) .hub, .card::before { animation: none !important; }
 }

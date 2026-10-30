@@ -221,19 +221,38 @@
     o.connect(g).connect(a.destination);
     o.start(a.currentTime + start); o.stop(a.currentTime + start + dur + 0.02);
   }
+  let noiseBuf = null;
+  function noise(start, dur, vol, filterType = "bandpass", freq = 1800) {
+    const a = ac(); if (!a || state.muted) return;
+    if (!noiseBuf) {
+      noiseBuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    src.buffer = noiseBuf;
+    f.type = filterType; f.frequency.value = freq;
+    g.gain.setValueAtTime(vol, a.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + start + dur);
+    src.connect(f).connect(g).connect(a.destination);
+    src.start(a.currentTime + start, Math.random()); src.stop(a.currentTime + start + dur + 0.05);
+  }
   function tick() {
     const now = performance.now();
     if (now - lastTick < 40) return;
     lastTick = now;
     tone(1400, 0, 0.03, "square", 0.04);
   }
+  const drum = (vol) => noise(0, 0.08, vol, "bandpass", 1600 + Math.random() * 400);
+  function cymbal() { noise(0, 1.8, 0.25, "highpass", 6000); tone(80, 0, 0.5, "sine", 0.35); }
   function fanfare() {
-    [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, 0.35, "triangle", 0.12));
-    tone(1319, 0.5, 0.7, "triangle", 0.1);
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.11, 0.35, "triangle", 0.12));
+    [1047, 1319, 1568].forEach((f) => tone(f, 0.48, 1.1, "triangle", 0.07));
   }
 
   // ---------- Giro ----------
   const ease = (t) => 1 - Math.pow(1 - t, 3.6);
+  const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
   function spin() {
     const n = state.tickets.length;
@@ -242,6 +261,7 @@
     ac();
     spinning = true;
     document.body.classList.add("spinning");
+    wrap.classList.remove("win");
 
     const winner = randomInt(n);
     const s = TAU / n;
@@ -250,18 +270,26 @@
     const start = angle;
     let target = -(winner + offset) * s;
     target += Math.ceil((start + turns * TAU - target) / TAU) * TAU;
-    const total = target - start;
-    const dur = state.duration * 1000;
+    // "Casi": la ruleta se pasa un poco (a veces hasta el boleto vecino) y regresa al ganador
+    const over = n > 1 && Math.random() < 0.6 ? (offset + 0.25 + Math.random() * 0.25) * s : offset * 0.6 * s;
+    const total = target + over - start;
+    const dur = state.duration * 1000, settle = n > 1 ? 1300 : 0;
     const t0 = performance.now();
-    let lastIdx = indexAt(angle), zoomed = false;
+    let lastIdx = indexAt(angle), zoomed = false, suspense = false, nextDrum = 0;
 
     function frame(now) {
-      const t = Math.min(1, (now - t0) / dur);
-      angle = start + total * ease(t);
+      const el = now - t0;
+      const t = Math.min(1, el / dur);
+      if (el <= dur) angle = start + total * ease(t);
+      else angle = target + over * (1 - easeInOut(Math.min(1, (el - dur) / settle)));
       drawWheel();
 
       const idx = indexAt(angle);
-      if (idx !== lastIdx) { lastIdx = idx; tick(); current.textContent = state.tickets[idx]; }
+      if (idx !== lastIdx) {
+        lastIdx = idx; tick();
+        current.textContent = state.tickets[idx];
+        if (suspense) bump(current);
+      }
 
       // Cuando la ruleta empieza a frenar: zoom hacia la punta del selector
       if (!zoomed && t > 0.45) {
@@ -269,47 +297,98 @@
         wrap.classList.add("zoom");
         lens.classList.add("show");
       }
+      // Tramo final: suspenso con redoble de tambor que se acelera
+      if (!suspense && t > 0.68) { suspense = true; document.body.classList.add("suspense"); }
+      if (suspense && now >= nextDrum) {
+        const k = Math.min(1, (el - dur * 0.68) / (dur * 0.32 + settle));
+        drum(0.05 + 0.2 * k);
+        nextDrum = now + 110 - 65 * k;
+      }
       if (zoomed) drawLens();
 
-      if (t < 1) requestAnimationFrame(frame);
-      else finish(winner);
+      if (el < dur + settle) requestAnimationFrame(frame);
+      else finish();
     }
     requestAnimationFrame(frame);
   }
 
-  function finish(winner) {
+  function bump(el) {
+    el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
+  }
+
+  function finish() {
     angle = mod(angle, TAU);
-    const idx = indexAt(angle);       // coincide con winner
+    const idx = indexAt(angle);
     current.textContent = state.tickets[idx];
     drawLens();
+    document.body.classList.remove("suspense");
+    wrap.classList.add("win");
+    lens.classList.add("win");
+    cymbal();
     setTimeout(() => {
       spinning = false;
       document.body.classList.remove("spinning");
       showWinner(idx);
-    }, 700);
+    }, 1100);
   }
 
   function showWinner(idx) {
     lastWinner = idx;
     const raw = state.tickets[idx];
     const t = parseTicket(raw);
-    $("winNumber").textContent = t.num;
-    $("winName").textContent = t.name;
     state.history.unshift({ ticket: raw, at: new Date().toISOString() });
     save();
     renderHistory();
+    $("winOrdinal").textContent = `Ganador N.º ${state.history.length}`;
+    $("winName").textContent = t.name;
     $("btnRemove").style.display = state.autoRemove ? "none" : "";
     $("btnKeep").textContent = state.autoRemove ? "Continuar" : "Cerrar";
-    $("winner").classList.add("open");
-    fanfare();
-    confetti();
+    const modal = $("winner");
+    modal.classList.remove("revealed");
+    modal.classList.add("open");
+    rollDigits($("winNumber"), t.num, () => {
+      modal.classList.add("revealed");
+      cymbal();
+      fanfare();
+      confetti();
+    });
+  }
+
+  // Revela el número dígito a dígito, como un contador que se detiene
+  function rollDigits(el, text, done) {
+    el.innerHTML = "";
+    const chars = [...text].map((ch) => {
+      const span = document.createElement("span");
+      span.className = "digit";
+      span.textContent = /\d/.test(ch) ? "0" : ch;
+      el.append(span);
+      return { span, ch, isDigit: /\d/.test(ch) };
+    });
+    const t0 = performance.now(), per = Math.min(380, 1600 / Math.max(1, chars.length));
+    let lastDrum = 0;
+    (function step(now) {
+      let pending = false;
+      chars.forEach((c, i) => {
+        if (c.span.classList.contains("settled")) return;
+        if (now - t0 > 500 + i * per) {
+          c.span.textContent = c.ch;
+          c.span.classList.add("settled");
+          tone(880 + i * 120, 0, 0.12, "triangle", 0.08);
+        } else {
+          pending = true;
+          if (c.isDigit) c.span.textContent = String(randomInt(10));
+        }
+      });
+      if (now - lastDrum > 70) { lastDrum = now; if (pending) drum(0.12); }
+      if (pending) requestAnimationFrame(step); else done();
+    })(t0);
   }
 
   function closeWinner() {
     if (!$("winner").classList.contains("open")) return;
-    $("winner").classList.remove("open");
-    wrap.classList.remove("zoom");
-    lens.classList.remove("show");
+    $("winner").classList.remove("open", "revealed");
+    wrap.classList.remove("zoom", "win");
+    lens.classList.remove("show", "win");
     if (state.autoRemove) removeTicket(lastWinner);
     lastWinner = null;
   }
@@ -322,34 +401,56 @@
     updateCount();
   }
 
+  // Giro lento en reposo, para que la ruleta "respire"
+  let lastIdle = performance.now();
+  (function idle(now) {
+    const dt = Math.min(50, now - lastIdle); lastIdle = now;
+    if (!spinning && !$("winner").classList.contains("open") && !lens.classList.contains("show")) {
+      angle += dt * 0.00006;
+      drawWheel();
+    }
+    requestAnimationFrame(idle);
+  })(lastIdle);
+
   // ---------- Confeti ----------
   function confetti() {
     const c = $("confetti"), g = c.getContext("2d");
     const dpr = window.devicePixelRatio || 1;
     c.width = innerWidth * dpr; c.height = innerHeight * dpr;
-    const colors = ["#ff5a00", "#ffb37a", "#1d2027", "#7fb3f5", "#fcd27b", "#a8e6a1", "#f59e9e"];
-    const parts = Array.from({ length: 220 }, () => ({
-      x: c.width / 2 + (Math.random() - 0.5) * c.width * 0.3,
-      y: c.height * 0.45,
-      vx: (Math.random() - 0.5) * 26 * dpr,
-      vy: (-Math.random() * 24 - 8) * dpr,
-      w: (6 + Math.random() * 8) * dpr, h: (8 + Math.random() * 10) * dpr,
-      r: Math.random() * TAU, vr: (Math.random() - 0.5) * 0.4,
+    const colors = ["#ff5a00", "#ff8a3d", "#ffc58f", "#1d2027", "#f5c542", "#ffffff", "#7fb3f5"];
+    const make = (x, y, vx, vy) => ({
+      x, y, vx, vy,
+      w: (6 + Math.random() * 8) * dpr, h: (8 + Math.random() * 12) * dpr,
+      r: Math.random() * TAU, vr: (Math.random() - 0.5) * 0.35,
+      sway: Math.random() * TAU,
       color: colors[randomInt(colors.length)],
-    }));
+    });
+    const parts = [];
+    // Dos cañones desde las esquinas inferiores
+    for (let i = 0; i < 150; i++) {
+      const sp = (18 + Math.random() * 16) * dpr, a = -Math.PI / 2 + 0.25 + Math.random() * 0.45;
+      parts.push(make(0, c.height, Math.cos(a) * sp * 0.9 + 6 * dpr, -Math.abs(Math.sin(a)) * sp * 1.15));
+      parts.push(make(c.width, c.height, -(Math.cos(a) * sp * 0.9 + 6 * dpr), -Math.abs(Math.sin(a)) * sp * 1.15));
+    }
+    // Lluvia suave desde arriba
+    for (let i = 0; i < 120; i++) {
+      parts.push(make(Math.random() * c.width, -Math.random() * c.height * 0.8, 0, (1 + Math.random() * 2) * dpr));
+    }
     const t0 = performance.now();
     (function step(now) {
       const t = now - t0;
       g.clearRect(0, 0, c.width, c.height);
-      g.globalAlpha = Math.max(0, 1 - Math.max(0, t - 2800) / 1000);
+      g.globalAlpha = Math.max(0, 1 - Math.max(0, t - 4500) / 1200);
       for (const p of parts) {
-        p.vy += 0.6 * dpr; p.vx *= 0.99; p.vy *= 0.99;
-        p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        p.vy = Math.min(p.vy + 0.45 * dpr, 4.5 * dpr);
+        p.vx *= 0.97;
+        p.sway += 0.05;
+        p.x += p.vx + Math.sin(p.sway) * 0.8 * dpr; p.y += p.vy; p.r += p.vr;
         g.save(); g.translate(p.x, p.y); g.rotate(p.r);
         g.fillStyle = p.color; g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.r * 2)));
         g.restore();
       }
-      if (t < 3800) requestAnimationFrame(step); else g.clearRect(0, 0, c.width, c.height);
+      if (t < 5700) requestAnimationFrame(step); else g.clearRect(0, 0, c.width, c.height);
     })(t0);
   }
 

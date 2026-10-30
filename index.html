@@ -10,13 +10,17 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="bg" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="vignette" aria-hidden="true"></div>
   <header class="top">
     <p class="subtitle" id="eventTitle">Gran Rifa Navideña · Priostes del Niñito Jesús</p>
     <div class="current" id="current" aria-live="polite">&nbsp;</div>
+    <p class="status">Seleccionando ganador<span>.</span><span>.</span><span>.</span></p>
   </header>
 
   <main class="stage" id="stage">
     <div class="wheel-wrap" id="wheelWrap">
+      <div class="glow" aria-hidden="true"></div>
       <canvas id="wheel" aria-label="Ruleta de boletos"></canvas>
       <button class="hub" id="hub" title="Girar (Espacio)">
         <img src="assets/logo.jpg" alt="Banco VisionFund Ecuador">
@@ -79,8 +83,11 @@
 
   <!-- Modal ganador -->
   <div class="modal" id="winner" role="dialog" aria-modal="true">
+    <div class="rays" aria-hidden="true"></div>
     <div class="card">
-      <p class="label">🎉 ¡Tenemos ganador! 🎉</p>
+      <img class="card-logo" src="assets/logo.jpg" alt="">
+      <p class="label" id="winOrdinal"></p>
+      <p class="title">¡Felicidades!</p>
       <div class="win-number" id="winNumber"></div>
       <div class="win-name" id="winName"></div>
       <div class="row">
