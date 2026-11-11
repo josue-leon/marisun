@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flores amarillas para Marisol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #070b1f; }
+  canvas { display: block; position: fixed; inset: 0; cursor: pointer; }
+  .mensaje {
+    position: fixed; left: 0; right: 0; top: 7vh; text-align: center;
+    pointer-events: none; color: #fff6c9; padding: 0 16px;
+  }
+  .mensaje h1 {
+    font-family: 'Great Vibes', 'Brush Script MT', cursive; font-weight: 400;
+    font-size: clamp(2.8rem, 9vw, 6rem); line-height: 1.1;
+    color: #ffd93b; text-shadow: 0 0 18px rgba(255, 210, 50, .55), 0 0 40px rgba(255, 170, 0, .3);
+    opacity: 0; transform: translateY(14px); transition: opacity 2.2s ease, transform 2.2s ease;
+  }
+  .mensaje p {
+    font-family: 'Quicksand', system-ui, sans-serif; font-size: clamp(1rem, 3.2vw, 1.35rem);
+    margin-top: .6em; letter-spacing: .03em; color: #fff3c4; text-shadow: 0 0 10px rgba(0,0,0,.6);
+    opacity: 0; transition: opacity 2.2s ease 1.2s; max-width: 34em; margin-left: auto; margin-right: auto;
+  }
+  .mensaje.visible h1 { opacity: 1; transform: none; }
+  .mensaje.visible p { opacity: 1; }
+  .pista {
+    position: fixed; bottom: 14px; left: 0; right: 0; text-align: center;
+    font-family: 'Quicksand', system-ui, sans-serif; font-size: .85rem;
+    color: rgba(255, 243, 196, .55); pointer-events: none;
+    opacity: 0; transition: opacity 2s ease;
+  }
+  .pista.visible { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="lienzo"></canvas>
+<div class="mensaje" id="mensaje">
+  <h1>Para Marisol</h1>
+  <p id="frase">Estas flores amarillas son para ti, porque iluminas mis días como el sol 💛</p>
+</div>
+<div class="pista" id="pista">Toca la pantalla para que nazcan más flores 🌼</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('lienzo');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+
+  const frases = [
+    'Estas flores amarillas son para ti, porque iluminas mis días como el sol 💛',
+    'Cada flor que nace aquí es un “te amo” que no cabe en palabras 🌻',
+    'Contigo, hasta los días grises se vuelven amarillos ✨',
+    'Gracias por ser mi hogar, mi alegría y mi todo, Marisol 💛',
+    'Si pudiera regalarte un jardín entero, cada flor llevaría tu nombre 🌼'
+  ];
+
+  const flores = [];
+  const estrellas = [];
+  const luciernagas = [];
+  const petalosCayendo = [];
+  let t0 = performance.now();
+
+  function redimensionar() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    estrellas.length = 0;
+    const n = Math.round((W * H) / 5000);
+    for (let i = 0; i < n; i++) {
+      estrellas.push({ x: Math.random() * W, y: Math.random() * H * 0.75,
+        r: Math.random() * 1.3 + 0.2, f: Math.random() * Math.PI * 2, v: Math.random() * 1.5 + 0.5 });
+    }
+  }
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const easeOut = x => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);
+  const easeBack = x => { x = Math.min(Math.max(x, 0), 1); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+
+  function sueloY(x) { return H - 40 - Math.sin(x / W * Math.PI * 2) * 12; }
+
+  function crearFlor(x, retraso = 0, escala = 1) {
+    const altura = rand(H * 0.28, H * 0.52) * escala;
+    const tipo = Math.random() < 0.45 ? 'girasol' : 'margarita';
+    flores.push({
+      x, base: sueloY(x), altura, tipo,
+      inicio: performance.now() + retraso,
+      curva: rand(-0.35, 0.35) * altura,
+      radio: (tipo === 'girasol' ? rand(26, 40) : rand(18, 28)) * escala * Math.min(1, W / 700 + 0.35),
+      petalos: tipo === 'girasol' ? Math.floor(rand(18, 24)) : Math.floor(rand(10, 14)),
+      fase: Math.random() * Math.PI * 2,
+      hojas: [rand(0.25, 0.4), rand(0.5, 0.65)],
+      tono: rand(44, 52),
+      crecimiento: rand(2600, 3600)
+    });
+    flores.sort((a, b) => a.altura - b.altura);
+  }
+
+  function puntoTallo(f, s, viento) {
+    // curva cuadrática desde la base hasta la punta
+    const p0x = f.x, p0y = f.base;
+    const p2x = f.x + f.curva * 0.3 + viento, p2y = f.base - f.altura;
+    const p1x = f.x + f.curva + viento * 0.4, p1y = f.base - f.altura * 0.5;
+    const u = 1 - s;
+    return {
+      x: u * u * p0x + 2 * u * s * p1x + s * s * p2x,
+      y: u * u * p0y + 2 * u * s * p1y + s * s * p2y
+    };
+  }
+
+  function dibujarHoja(x, y, ang, tam) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(ang);
+    const g = ctx.createLinearGradient(0, 0, tam, 0);
+    g.addColorStop(0, '#2f7d32'); g.addColorStop(1, '#7cc35a');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(tam * 0.5, -tam * 0.38, tam, 0);
+    ctx.quadraticCurveTo(tam * 0.5, tam * 0.38, 0, 0);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(20,70,20,.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(tam * 0.9, 0); ctx.stroke();
+    ctx.restore();
+  }
+
+  function dibujarFlor(f, ahora) {
+    const t = ahora - f.inicio;
+    if (t < 0) return;
+    const crec = easeOut(t / f.crecimiento);
+    const apertura = easeBack((t - f.crecimiento * 0.85) / 1600);
+    const viento = Math.sin(ahora / 1400 + f.fase) * 10 * (f.altura / H) + Math.sin(ahora / 530 + f.fase) * 2;
+
+    // tallo
+    const pasos = 30;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#3d8b3d';
+    ctx.lineWidth = Math.max(2.5, f.radio * 0.16);
+    ctx.beginPath();
+    for (let i = 0; i <= pasos; i++) {
+      const p = puntoTallo(f, (i / pasos) * crec, viento);
+      i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    // hojas
+    f.hojas.forEach((h, i) => {
+      if (crec > h) {
+        const p = puntoTallo(f, h, viento);
+        const crecHoja = easeOut((crec - h) / 0.3);
+        const lado = i % 2 === 0 ? -1 : 1;
+        dibujarHoja(p.x, p.y, lado === -1 ? Math.PI + 0.5 : -0.5, f.radio * 1.3 * crecHoja);
+      }
+    });
+
+    // capullo / flor
+    const punta = puntoTallo(f, crec, viento);
+    if (crec < 0.6) return;
+    const capullo = easeOut((crec - 0.6) / 0.4);
+    ctx.save();
+    ctx.translate(punta.x, punta.y);
+    ctx.rotate(viento * 0.01);
+
+    // brillo
+    if (apertura > 0) {
+      const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, f.radio * 2.6);
+      halo.addColorStop(0, `rgba(255, 215, 60, ${0.28 * Math.min(apertura, 1)})`);
+      halo.addColorStop(1, 'rgba(255, 215, 60, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(0, 0, f.radio * 2.6, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // sépalos verdes
+    ctx.fillStyle = '#4c9a3f';
+    for (let i = 0; i < 6; i++) {
+      ctx.save(); ctx.rotate(i / 6 * Math.PI * 2 + 0.3);
+      ctx.beginPath(); ctx.ellipse(0, -f.radio * 0.35 * capullo, f.radio * 0.18, f.radio * 0.4 * capullo, 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.restore();
+    }
+
+    // pétalos
+    const ap = Math.max(apertura, 0);
+    const largo = f.radio * (0.35 + 0.95 * ap);
+    const ancho = f.radio * (f.tipo === 'girasol' ? 0.24 : 0.3) * (0.6 + 0.4 * ap);
+    const capas = f.tipo === 'girasol' ? 2 : 1;
+    for (let c = 0; c < capas; c++) {
+      for (let i = 0; i < f.petalos; i++) {
+        const ang = (i / f.petalos) * Math.PI * 2 + c * (Math.PI / f.petalos) + Math.sin(ahora / 900 + i) * 0.02;
+        ctx.save();
+        ctx.rotate(ang);
+        const l = largo * (c === 1 ? 0.85 : 1);
+        const g = ctx.createLinearGradient(0, 0, 0, -l);
+        const luz = c === 1 ? 50 : 58;
+        g.addColorStop(0, `hsl(${f.tono - 10}, 100%, ${luz - 8}%)`);
+        g.addColorStop(1, `hsl(${f.tono}, 100%, ${luz + 6}%)`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(ancho, -l * 0.3, ancho * 0.8, -l * 0.85, 0, -l);
+        ctx.bezierCurveTo(-ancho * 0.8, -l * 0.85, -ancho, -l * 0.3, 0, 0);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // centro
+    const rc = f.radio * (f.tipo === 'girasol' ? 0.5 : 0.32) * (0.5 + 0.5 * Math.max(ap, capullo * 0.5));
+    const gc = ctx.createRadialGradient(-rc * 0.3, -rc * 0.3, rc * 0.1, 0, 0, rc);
+    if (f.tipo === 'girasol') {
+      gc.addColorStop(0, '#8a4b14'); gc.addColorStop(1, '#3b1e08');
+    } else {
+      gc.addColorStop(0, '#ffb300'); gc.addColorStop(1, '#e07b00');
+    }
+    ctx.fillStyle = gc;
+    ctx.beginPath(); ctx.arc(0, 0, rc, 0, Math.PI * 2); ctx.fill();
+    if (f.tipo === 'girasol' && ap > 0.3) {
+      ctx.fillStyle = 'rgba(255, 190, 70, .45)';
+      const n = 40;
+      for (let i = 0; i < n; i++) {
+        const a = i * 2.39996; const r = Math.sqrt(i / n) * rc * 0.88;
+        ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, rc * 0.05, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
+
+    // a veces se suelta un pétalo
+    if (ap >= 1 && Math.random() < 0.0015) {
+      petalosCayendo.push({ x: punta.x, y: punta.y, vx: rand(-0.3, 0.6), vy: rand(0.3, 0.8),
+        rot: rand(0, Math.PI * 2), vr: rand(-0.04, 0.04), tam: f.radio * 0.5, tono: f.tono, vida: 1 });
+    }
+  }
+
+  function dibujarFondo(ahora) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#060a1e'); g.addColorStop(0.55, '#162055'); g.addColorStop(1, '#3a2b5c');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // luna
+    const vertical = W < H; const lx = W * 0.84, ly = H * (vertical ? 0.3 : 0.16), lr = Math.min(W, H) * (vertical ? 0.08 : 0.06);
+    const gl = ctx.createRadialGradient(lx, ly, lr * 0.2, lx, ly, lr * 4);
+    gl.addColorStop(0, 'rgba(255, 245, 200, .35)'); gl.addColorStop(1, 'rgba(255, 245, 200, 0)');
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(lx, ly, lr * 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff6d6'; ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI * 2); ctx.fill();
+
+    estrellas.forEach(s => {
+      const a = 0.35 + 0.65 * Math.abs(Math.sin(ahora / 1000 * s.v + s.f));
+      ctx.fillStyle = `rgba(255, 250, 220, ${a})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  function dibujarSuelo() {
+    const g = ctx.createLinearGradient(0, H - 70, 0, H);
+    g.addColorStop(0, '#1d4a24'); g.addColorStop(1, '#0c2410');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 10) ctx.lineTo(x, sueloY(x));
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  }
+
+  function actualizarLuciernagas(ahora) {
+    while (luciernagas.length < Math.min(40, W / 25)) {
+      luciernagas.push({ x: Math.random() * W, y: rand(H * 0.35, H - 50), f: Math.random() * 10,
+        vx: rand(-0.3, 0.3), vy: rand(-0.2, 0.2) });
+    }
+    luciernagas.forEach(l => {
+      l.x += l.vx + Math.sin(ahora / 1200 + l.f) * 0.3;
+      l.y += l.vy + Math.cos(ahora / 1500 + l.f) * 0.25;
+      if (l.x < -10) l.x = W + 10; if (l.x > W + 10) l.x = -10;
+      if (l.y < H * 0.25) l.vy = Math.abs(l.vy); if (l.y > H - 40) l.vy = -Math.abs(l.vy);
+      const a = 0.4 + 0.6 * Math.abs(Math.sin(ahora / 700 + l.f));
+      const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, 9);
+      g.addColorStop(0, `rgba(255, 240, 120, ${a})`); g.addColorStop(1, 'rgba(255, 240, 120, 0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y, 9, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  function actualizarPetalos() {
+    for (let i = petalosCayendo.length - 1; i >= 0; i--) {
+      const p = petalosCayendo[i];
+      p.x += p.vx + Math.sin(p.y / 40) * 0.6; p.y += p.vy; p.rot += p.vr;
+      if (p.y > sueloY(p.x)) p.vida -= 0.01;
+      if (p.vida <= 0 || p.x > W + 20) { petalosCayendo.splice(i, 1); continue; }
+      ctx.save(); ctx.globalAlpha = p.vida; ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = `hsl(${p.tono}, 100%, 58%)`;
+      ctx.beginPath(); ctx.ellipse(0, 0, p.tam * 0.3, p.tam * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function bucle(ahora) {
+    dibujarFondo(ahora);
+    actualizarLuciernagas(ahora);
+    dibujarSuelo();
+    flores.forEach(f => dibujarFlor(f, ahora));
+    actualizarPetalos();
+    requestAnimationFrame(bucle);
+  }
+
+  function jardinInicial() {
+    const n = Math.max(5, Math.min(13, Math.round(W / 110)));
+    for (let i = 0; i < n; i++) {
+      const x = (i + 0.5) * (W / n) + rand(-W / n * 0.3, W / n * 0.3);
+      crearFlor(x, 300 + i * 260 + rand(0, 300), rand(0.8, 1.1));
+    }
+  }
+
+  let indiceFrase = 0;
+  canvas.addEventListener('pointerdown', e => {
+    crearFlor(e.clientX, 0, rand(0.7, 1.05));
+    if (flores.length > 60) flores.splice(0, flores.length - 60);
+    indiceFrase = (indiceFrase + 1) % frases.length;
+    const p = document.getElementById('frase');
+    p.style.transition = 'opacity .6s ease';
+    p.style.opacity = 0;
+    setTimeout(() => { p.textContent = frases[indiceFrase]; p.style.opacity = 1; }, 600);
+  });
+
+  window.addEventListener('resize', () => {
+    const viejoW = W;
+    redimensionar();
+    flores.forEach(f => { f.x = f.x / viejoW * W; f.base = sueloY(f.x); });
+  });
+
+  redimensionar();
+  jardinInicial();
+  requestAnimationFrame(bucle);
+  setTimeout(() => document.getElementById('mensaje').classList.add('visible'), 2600);
+  setTimeout(() => document.getElementById('pista').classList.add('visible'), 6500);
+})();
+</script>
+</body>
+</html>

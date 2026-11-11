@@ -16,3 +16,11 @@ Abre `index.html` en el navegador (doble clic) o sírvelo con cualquier servidor
 - El ganador se quita de la ruleta automáticamente (configurable).
 
 El ganador se elige con `crypto.getRandomValues` (sin sesgo). La configuración se guarda en el navegador (`localStorage`).
+
+---
+
+## 🌼 Flores amarillas para Marisol
+
+Página aparte en [`flores/index.html`](flores/index.html): animación en Canvas (vanilla JS, sin dependencias) con girasoles y margaritas amarillas que crecen y se abren bajo un cielo estrellado. Tocar la pantalla hace nacer más flores y cambia la frase.
+
+Con GitHub Pages activado queda en `https://josue-leon.github.io/app-sorteo-ruleta/flores/`.
